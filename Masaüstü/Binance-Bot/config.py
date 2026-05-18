@@ -4,10 +4,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
+    
     SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "change-me")
-    API_KEY = os.getenv("BINANCE_API_KEY", "")
-    API_SECRET = os.getenv("BINANCE_API_SECRET", "")
-    TRADING_MODE = os.getenv("TRADING_MODE", "paper")
+    TRADING_MODE = os.getenv("TRADING_MODE", "paper")   # paper (test) veya live
+
+    if TRADING_MODE == "live":
+        API_KEY = os.getenv("BINANCE_API_KEY_LIVE", "")
+        API_SECRET = os.getenv("BINANCE_API_SECRET_LIVE", "")
+    else:   # paper (test) modu
+        API_KEY = os.getenv("BINANCE_API_KEY_TEST", "")
+        API_SECRET = os.getenv("BINANCE_API_SECRET_TEST", "")
     HOST = os.getenv("HOST", "0.0.0.0")
     PORT = int(os.getenv("PORT", "5000"))
 
