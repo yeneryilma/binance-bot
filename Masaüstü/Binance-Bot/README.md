@@ -1,0 +1,1 @@
+# wr-stoch-trading-bot

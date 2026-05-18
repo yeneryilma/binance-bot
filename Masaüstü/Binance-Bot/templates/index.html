@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ WR+STOCH Trading Bot</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+  :root {
+    --bg:        #060b15;
+    --bg2:       #0c1424;
+    --bg3:       #111d30;
+    --border:    #1a2d4a;
+    --border2:   #243c5e;
+    --green:     #00ffa3;
+    --green2:    #00c97a;
+    --red:       #ff4757;
+    --red2:      #cc2233;
+    --cyan:      #00d4ff;
+    --yellow:    #ffd166;
+    --orange:    #ff9f43;
+    --white:     #e0eaff;
+    --muted:     #4a6a8a;
+    --font-mono: 'Space Mono', monospace;
+    --font-ui:   'Outfit', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: var(--font-ui);
+    font-size: 14px;
+  }
+
+  #app { display: flex; flex-direction: column; height: 100vh; }
+
+  /* ── LIVE UYARI BANDI ── */
+  #live-bar {
+    display: none;
+    background: linear-gradient(90deg, #1a0000, #2a0000, #1a0000);
+    border-bottom: 1px solid var(--red);
+    padding: 5px 20px;
+    font-size: 11px; font-weight: 700;
+    color: var(--red); letter-spacing: 1px;
+    align-items: center; justify-content: center; gap: 10px;
+    text-transform: uppercase; flex-shrink: 0;
+    animation: livePulse 2s infinite;
+  }
+  #live-bar.show { display: flex; }
+  @keyframes livePulse {
+    0%,100% { background: linear-gradient(90deg,#1a0000,#2a0000,#1a0000); }
+    50%      { background: linear-gradient(90deg,#2a0000,#3a0000,#2a0000); }
+  }
+
+  /* ── TOPBAR ── */
+  #topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 20px; height: 56px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .logo {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+    color: var(--cyan); letter-spacing: 2px; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .logo span { color: var(--green); }
+  .divider { width: 1px; height: 30px; background: var(--border); margin: 0 4px; }
+  .topbar-stat { display: flex; flex-direction: column; align-items: flex-start; min-width: 90px; }
+  .topbar-stat .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .topbar-stat .value { font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
+  .spacer { flex: 1; }
+
+  /* MODE PİLL */
+  #mode-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 14px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; white-space: nowrap;
+    border: 1px solid var(--border2); color: var(--muted);
+    cursor: pointer; transition: all .2s;
+  }
+  #mode-pill.paper {
+    background: #001a2a; border-color: var(--cyan); color: var(--cyan);
+  }
+  #mode-pill.testnet {
+    background: #1a1000; border-color: var(--yellow); color: var(--yellow);
+  }
+  #mode-pill.live {
+    background: #1a0000; border-color: var(--red); color: var(--red);
+    animation: pillPulse 1.5s infinite;
+  }
+  @keyframes pillPulse {
+    0%,100% { box-shadow: none; }
+    50%      { box-shadow: 0 0 12px #ff475744; }
+  }
+
+  /* STATUS PİLL */
+  #status-pill {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+    background: #0c1a0f; border: 1px solid #1a3a1a; color: var(--muted);
+    transition: all .3s;
+  }
+  #status-pill.running  { background: #001a0f; border-color: var(--green); color: var(--green); }
+  #status-pill.scanning { background: #001520; border-color: var(--cyan);  color: var(--cyan); }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--muted); transition: background .3s;
+  }
+  #status-pill.running .dot  { background: var(--green); animation: pulse 1.5s infinite; }
+  #status-pill.scanning .dot { background: var(--cyan);  animation: pulse .6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: 6px;
+    font-family: var(--font-ui); font-size: 12px; font-weight: 600;
+    letter-spacing: .5px; cursor: pointer; border: none;
+    transition: all .15s; user-select: none;
+  }
+  .btn-green   { background: var(--green);  color: #000; }
+  .btn-green:hover  { background: #00ffb8; }
+  .btn-red     { background: var(--red);    color: #fff; }
+  .btn-red:hover    { background: #ff6571; }
+  .btn-outline {
+    background: transparent; border: 1px solid var(--border2); color: var(--white);
+  }
+  .btn-outline:hover { border-color: var(--cyan); color: var(--cyan); }
+  .btn-yellow  { background: var(--yellow); color: #000; }
+  .btn-yellow:hover { background: #ffe08a; }
+  .btn-orange  { background: var(--orange); color: #000; }
+  .btn-orange:hover { background: #ffb347; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── TABS ── */
+  #tabs {
+    display: flex; background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px; flex-shrink: 0;
+  }
+  .tab {
+    padding: 12px 20px; font-size: 12px; font-weight: 600;
+    letter-spacing: .8px; text-transform: uppercase;
+    color: var(--muted); cursor: pointer;
+    border-bottom: 2px solid transparent; transition: all .2s; white-space: nowrap;
+  }
+  .tab:hover { color: var(--white); }
+  .tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+  .tab .badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%;
+    font-size: 10px; font-weight: 700;
+    background: var(--bg3); margin-left: 6px;
+  }
+  .tab.active .badge { background: #00d4ff22; color: var(--cyan); }
+
+  /* ── CONTENT ── */
+  #content { flex: 1; overflow: hidden; position: relative; }
+  .panel {
+    position: absolute; inset: 0; overflow-y: auto;
+    padding: 20px; display: none;
+  }
+  .panel.active { display: block; }
+  .panel::-webkit-scrollbar { width: 4px; }
+  .panel::-webkit-scrollbar-track { background: transparent; }
+  .panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 20px;
+  }
+  .card-title {
+    font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+  }
+  .card-value { font-family: var(--font-mono); font-size: 22px; font-weight: 700; line-height: 1.1; }
+  .card-sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .stat-grid  { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 12px; margin-bottom: 20px; }
+
+  /* ── TABLES ── */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    padding: 10px 12px; background: var(--bg3);
+    text-align: left; font-size: 10px; font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+  tbody tr:hover { background: var(--bg3); }
+  tbody td { padding: 10px 12px; font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
+  .td-label { font-family: var(--font-ui); font-size: 12px; }
+
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  .neu { color: var(--muted); }
+  .long-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    background: #00ffa322; color: var(--green);
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  }
+  .short-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    background: #ff475722; color: var(--red);
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  }
+  .strength-badge {
+    display: inline-block; padding: 2px 7px; border-radius: 4px;
+    font-size: 10px; font-weight: 600; letter-spacing: .5px;
+  }
+  .str-normal { background: #4a6a8a22; color: var(--muted); }
+  .str-guclu  { background: #00d4ff22; color: var(--cyan); }
+  .str-cok    { background: #ffd16622; color: var(--yellow); }
+  .trail-on   { color: var(--yellow); }
+  .trail-off  { color: var(--muted); }
+
+  .btn-close-pos {
+    padding: 4px 10px; border-radius: 4px;
+    border: 1px solid var(--red2); background: transparent;
+    color: var(--red); font-size: 11px; cursor: pointer;
+    font-family: var(--font-ui); font-weight: 600; transition: all .15s;
+  }
+  .btn-close-pos:hover { background: var(--red); color: #fff; }
+
+  .stop-bar { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+  .bar-track {
+    flex: 1; height: 3px; border-radius: 2px; background: var(--border2);
+    min-width: 60px; max-width: 100px; overflow: hidden;
+  }
+  .bar-fill  { height: 100%; border-radius: 2px; transition: width .3s; }
+  .bar-green  { background: var(--green); }
+  .bar-yellow { background: var(--yellow); }
+  .bar-red    { background: var(--red); }
+
+  /* ── SETTINGS ── */
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit,minmax(320px,1fr));
+    gap: 20px;
+  }
+  .settings-section h3 {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--cyan); margin-bottom: 14px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  .form-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .form-row:last-child { border-bottom: none; }
+  .form-label { font-size: 12px; color: var(--white); flex: 1; }
+  .form-label small { display: block; font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .form-input {
+    background: var(--bg3); border: 1px solid var(--border2);
+    color: var(--white); border-radius: 5px;
+    padding: 5px 10px; font-family: var(--font-mono);
+    font-size: 12px; width: 110px; text-align: right;
+    outline: none; transition: border .15s;
+  }
+  .form-input:focus { border-color: var(--cyan); }
+
+  /* MOD SEÇİCİ ÖZEL */
+  .mode-select-wrap {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .mode-btn {
+    padding: 6px 14px; border-radius: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .8px;
+    text-transform: uppercase; cursor: pointer;
+    border: 1px solid var(--border2); background: transparent;
+    color: var(--muted); font-family: var(--font-ui);
+    transition: all .15s;
+  }
+  .mode-btn:hover { border-color: var(--white); color: var(--white); }
+  .mode-btn.active-paper   { background:#001a2a; border-color:var(--cyan);   color:var(--cyan); }
+  .mode-btn.active-testnet { background:#1a1000; border-color:var(--yellow); color:var(--yellow); }
+  .mode-btn.active-live    { background:#1a0000; border-color:var(--red);    color:var(--red); }
+
+  /* Toggle switch */
+  .form-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .toggle-track {
+    width: 38px; height: 20px; border-radius: 10px;
+    background: var(--border2); position: relative;
+    transition: background .2s; flex-shrink: 0;
+  }
+  .toggle-track.on { background: var(--green); }
+  .toggle-thumb {
+    position: absolute; top: 3px; left: 3px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #fff; transition: transform .2s;
+  }
+  .toggle-track.on .toggle-thumb { transform: translateX(18px); }
+
+  /* ── LOGS ── */
+  #log-panel { font-family: var(--font-mono); font-size: 11px; line-height: 1.7; color: #8aa8c8; }
+  #log-panel .log-time { color: var(--muted); margin-right: 4px; }
+
+  /* ── TOAST ── */
+  #toast-container {
+    position: fixed; bottom: 20px; right: 20px;
+    z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    border-left: 3px solid var(--cyan); background: var(--bg2);
+    box-shadow: 0 4px 20px #00000066; animation: slideIn .2s ease; max-width: 340px;
+  }
+  .toast.success { border-left-color: var(--green); }
+  .toast.error   { border-left-color: var(--red); }
+  .toast.warn    { border-left-color: var(--orange); }
+  @keyframes slideIn { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
+
+  /* ── MODAL ── */
+  #modal-overlay {
+    position: fixed; inset: 0; background: #00000099;
+    z-index: 8888; display: none;
+    align-items: center; justify-content: center;
+  }
+  #modal-overlay.show { display: flex; }
+  .modal-box {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 12px; padding: 28px 32px;
+    max-width: 420px; width: 90%; text-align: center;
+  }
+  .modal-box h2 { font-size: 18px; margin-bottom: 8px; }
+  .modal-box p  { font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.6; }
+  .modal-btns   { display: flex; gap: 12px; justify-content: center; }
+
+  /* CANLI UYARI MODAL */
+  .modal-box.live-warn { border-color: var(--red); }
+  .modal-box.live-warn h2 { color: var(--red); }
+  #modal-live-confirm {
+    display: flex; flex-direction: column; gap: 10px; align-items: center; margin-bottom: 20px;
+  }
+  #modal-live-confirm input {
+    background: var(--bg3); border: 1px solid var(--red);
+    color: var(--white); border-radius: 5px;
+    padding: 8px 14px; font-family: var(--font-mono);
+    font-size: 13px; text-align: center; outline: none; width: 100%;
+  }
+  #modal-live-confirm label { font-size: 11px; color: var(--muted); }
+
+  /* ── SCAN TIMER ── */
+  #scan-timer { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; }
+
+  .section-hdr {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+  }
+  .section-hdr h2 {
+    font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--white);
+  }
+
+  #pause-bar {
+    display: none; background: #1a1000; border: 1px solid #3d2800;
+    border-radius: 6px; padding: 8px 14px; font-size: 12px;
+    color: var(--yellow); align-items: center; gap: 8px; margin-bottom: 16px;
+  }
+  #pause-bar.show { display: flex; }
+
+  /* ── AKTİF FİLTRE ÖZETİ ── */
+  #filter-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .filter-tag {
+    padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: 600;
+    letter-spacing: .8px; text-transform: uppercase;
+    border: 1px solid var(--border2); color: var(--muted);
+  }
+  .filter-tag.on  { border-color: var(--green); color: var(--green); background: #00ffa308; }
+  .filter-tag.off { border-color: var(--border); color: var(--muted); }
+
+  /* ── SEMBOL EDİTÖRÜ ── */
+  #symbol-editor {
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 6px; padding: 10px; width: 100%;
+    color: var(--white); font-family: var(--font-mono);
+    font-size: 12px; min-height: 120px; outline: none;
+    resize: vertical; transition: border .15s;
+  }
+  #symbol-editor:focus { border-color: var(--cyan); }
+
+  /* ── MOD AÇIKLAMASI ── */
+  .mode-desc {
+    margin-top: 12px; padding: 10px 14px;
+    border-radius: 6px; font-size: 11px; line-height: 1.6;
+  }
+  .mode-desc.paper   { background:#001a2a22; border:1px solid #00d4ff33; color: var(--cyan); }
+  .mode-desc.testnet { background:#1a100022; border:1px solid #ffd16633; color: var(--yellow); }
+  .mode-desc.live    { background:#1a000022; border:1px solid #ff475733; color: var(--red); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- CANLI MOD UYARI BANDI -->
+  <div id="live-bar">
+    ⚠️ CANLI MOD AKTİF — GERÇEK PARA İLE İŞLEM YAPILIYOR — RİSKLERİN FARKINDAYIM ⚠️
+  </div>
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="logo">⚡ WR+<span>STOCH</span></div>
+    <div class="divider"></div>
+    <div id="mode-pill" class="paper" onclick="switchTab('settings')" title="Moda tıkla → Ayarlar">📋 PAPER</div>
+    <div class="divider"></div>
+    <div class="topbar-stat">
+      <span class="label">Portföy</span>
+      <span class="value" id="tb-portfolio" style="color:var(--cyan)">$—</span>
+    </div>
+    <div class="topbar-stat">
+      <span class="label">Realized P&L</span>
+      <span class="value" id="tb-realized">$—</span>
+    </div>
+    <div class="topbar-stat">
+      <span class="label">Unrealized</span>
+      <span class="value" id="tb-unrealized">$—</span>
+    </div>
+    <div class="topbar-stat">
+      <span class="label">Toplam Getiri</span>
+      <span class="value" id="tb-total-ret">—%</span>
+    </div>
+    <div class="topbar-stat">
+      <span class="label">Win Rate</span>
+      <span class="value" id="tb-winrate" style="color:var(--cyan)">—%</span>
+    </div>
+    <div class="spacer"></div>
+    <span id="scan-timer"></span>
+    <div class="divider"></div>
+    <div id="status-pill"><div class="dot"></div><span id="status-text">HAZIR</span></div>
+    <div class="divider"></div>
+    <button class="btn btn-outline" onclick="doScan()">🔍 Tara</button>
+    <button class="btn btn-yellow" id="btn-pause" onclick="togglePause()">⏸ Yeni Pos. Durdur</button>
+    <button class="btn btn-green"  id="btn-start" onclick="startBot()">▶ Başlat</button>
+    <button class="btn btn-red"    id="btn-stop"  onclick="confirmStopAll()" style="display:none">■ Tümünü Kapat & Dur</button>
+  </div>
+
+  <!-- TABS -->
+  <div id="tabs">
+    <div class="tab active" data-tab="dashboard">Dashboard</div>
+    <div class="tab" data-tab="positions">Pozisyonlar <span class="badge" id="badge-pos">0</span></div>
+    <div class="tab" data-tab="trades">Kapanan İşlemler <span class="badge" id="badge-trades">0</span></div>
+    <div class="tab" data-tab="settings">Ayarlar</div>
+    <div class="tab" data-tab="logs">Log</div>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+
+    <!-- DASHBOARD -->
+    <div class="panel active" id="panel-dashboard">
+      <div id="pause-bar">⏸ Yeni pozisyon açma DURAKLATILDI — Mevcut pozisyonlar stop/TP'lerine göre kapanacak</div>
+
+      <div id="filter-summary">
+        <span class="filter-tag" id="ftag-rsi">RSI</span>
+        <span class="filter-tag" id="ftag-ema">EMA</span>
+        <span class="filter-tag" id="ftag-vol">HACİM</span>
+        <span class="filter-tag" id="ftag-htf">HTF</span>
+        <span class="filter-tag" id="ftag-macd">MACD</span>
+        <span class="filter-tag" id="ftag-bb">BOLL.BAND</span>
+        <span class="filter-tag" id="ftag-obv">OBV</span>
+        <span class="filter-tag" id="ftag-roc">ROC</span>
+        <span class="filter-tag" id="ftag-atr_trend">ATR TREND</span>
+        <span class="filter-tag" id="ftag-two_candle">2 MUM ONAY</span>
+        <span class="filter-tag" id="ftag-reverse_exit">TERS ÇIKIŞ</span>
+        <span class="filter-tag" id="ftag-reverse_entry">TERS GİRİŞ</span>
+      </div>
+
+      <div class="stat-grid">
+        <div class="card">
+          <div class="card-title">Başlangıç Portföy</div>
+          <div class="card-value" id="d-pf-start">$—</div>
+          <div class="card-sub">Başlangıç değeri</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Güncel Portföy</div>
+          <div class="card-value" id="d-pf-now">$—</div>
+          <div class="card-sub">Realized P&L dahil</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Toplam Değer</div>
+          <div class="card-value" id="d-pf-total">$—</div>
+          <div class="card-sub" id="d-pf-ret">Unrealized dahil</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Realized P&L</div>
+          <div class="card-value" id="d-real">$—</div>
+          <div class="card-sub">Kapanan işlemler</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Unrealized P&L</div>
+          <div class="card-value" id="d-unreal">$—</div>
+          <div class="card-sub">Açık pozisyonlar</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Win Rate</div>
+          <div class="card-value" id="d-wr" style="color:var(--cyan)">—%</div>
+          <div class="card-sub" id="d-wr-sub">0 işlem</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Açık Pozisyon</div>
+          <div class="card-value" id="d-open">0</div>
+          <div class="card-sub" id="d-open-sub">0 Long / 0 Short</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Tarama Sayısı</div>
+          <div class="card-value" id="d-scan-cnt" style="color:var(--cyan)">0</div>
+          <div class="card-sub" id="d-scan-sub">—</div>
+        </div>
+      </div>
+
+      <div class="section-hdr">
+        <h2>Aktif Pozisyonlar (Özet)</h2>
+        <button class="btn btn-outline" style="font-size:11px;padding:4px 12px" onclick="switchTab('positions')">Tümünü Gör →</button>
+      </div>
+      <div class="card tbl-wrap" id="dash-pos-table">
+        <div class="empty-state"><div class="icon">📭</div><p>Açık pozisyon yok</p></div>
+      </div>
+    </div>
+
+    <!-- POSITIONS -->
+    <div class="panel" id="panel-positions">
+      <div class="section-hdr">
+        <h2>Aktif Pozisyonlar</h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" style="font-size:11px;padding:5px 12px" onclick="doScan()">🔍 Manuel Tara</button>
+          <button class="btn btn-red"     style="font-size:11px;padding:5px 12px" onclick="confirmCloseAll()">✕ Tümünü Kapat</button>
+        </div>
+      </div>
+      <div class="card tbl-wrap" id="pos-table-wrap">
+        <div class="empty-state"><div class="icon">📭</div><p>Açık pozisyon yok</p></div>
+      </div>
+    </div>
+
+    <!-- TRADES -->
+    <div class="panel" id="panel-trades">
+      <div class="section-hdr">
+        <h2>Kapanan İşlemler</h2>
+        <div id="trades-summary" style="font-size:12px;color:var(--muted)">—</div>
+      </div>
+      <div class="card tbl-wrap" id="trades-table-wrap">
+        <div class="empty-state"><div class="icon">📋</div><p>Henüz kapanan işlem yok</p></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="panel" id="panel-settings">
+      <div class="section-hdr" style="margin-bottom:20px">
+        <h2>Ayarlar</h2>
+        <button class="btn btn-green" onclick="saveSettings()">💾 Kaydet</button>
+      </div>
+      <div class="settings-grid">
+
+        <!-- API & MOD -->
+        <div class="card settings-section" style="grid-column:1/-1">
+          <h3>🔑 API & İşlem Modu</h3>
+
+          <!-- MOD SEÇİCİ -->
+          <div class="form-row" style="align-items:flex-start;gap:16px;flex-wrap:wrap">
+            <div class="form-label">
+              İşlem Modu
+              <small>Kaydettikten sonra botu yeniden başlat</small>
+            </div>
+            <div>
+              <div class="mode-select-wrap">
+                <button class="mode-btn active-paper" id="mbtn-paper"
+                  onclick="selectMode('paper')">📋 PAPER</button>
+                <button class="mode-btn" id="mbtn-testnet"
+                  onclick="selectMode('testnet')">🧪 TESTNET</button>
+                <button class="mode-btn" id="mbtn-live"
+                  onclick="selectMode('live')">🔴 CANLI</button>
+              </div>
+              <div class="mode-desc paper" id="mode-desc-box">
+                Paper mod: Binance verisini gerçek zamanlı çeker, ancak hiçbir emir göndermez. Tüm işlemler sanal hafızada tutulur. Güvenli test ortamı.
+              </div>
+            </div>
+          </div>
+
+          <div style="height:12px"></div>
+
+          <div class="form-row">
+            <div class="form-label">API Key<small>Binance API anahtarı</small></div>
+            <input class="form-input" style="width:200px;text-align:left" id="s-api_key" type="password" placeholder="••••••••">
+          </div>
+          <div class="form-row">
+            <div class="form-label">API Secret<small>Binance API gizli anahtarı</small></div>
+            <input class="form-input" style="width:200px;text-align:left" id="s-api_secret" type="password" placeholder="••••••••">
+          </div>
+          <div class="form-row">
+            <div class="form-label">
+              Testnet
+              <small>Sadece TESTNET modunda kullanılır</small>
+            </div>
+            <div class="form-toggle" onclick="toggleSetting('testnet')">
+              <div class="toggle-track" id="toggle-testnet"><div class="toggle-thumb"></div></div>
+              <span id="toggle-testnet-lbl" style="font-size:11px;color:var(--muted)">—</span>
+            </div>
+          </div>
+          <!-- gizli input — backend için -->
+          <input type="hidden" id="s-trading_mode" value="paper">
+        </div>
+
+        <!-- Portföy & Risk -->
+        <div class="card settings-section">
+          <h3>💰 Portföy & Risk</h3>
+          <div class="form-row">
+            <div class="form-label">Portföy ($)<small>Toplam sermaye</small></div>
+            <input class="form-input" id="s-portfolio_usd" type="number" min="10">
+          </div>
+          <div class="form-row">
+            <div class="form-label">Kaldıraç<small>Maksimum kaldıraç</small></div>
+            <input class="form-input" id="s-leverage" type="number" min="1" max="125">
+          </div>
+          <div class="form-row">
+            <div class="form-label">Maks Long<small>Aynı anda açık LONG sayısı</small></div>
+            <input class="form-input" id="s-max_long" type="number" min="1">
+          </div>
+          <div class="form-row">
+            <div class="form-label">Maks Short<small>Aynı anda açık SHORT sayısı</small></div>
+            <input class="form-input" id="s-max_short" type="number" min="1">
+          </div>
+          <div class="form-row">
+            <div class="form-label">Min İşlem ($)<small>Minimum marjin</small></div>
+            <input class="form-input" id="s-min_trade_usd" type="number" min="1">
+          </div>
+        </div>
+
+        <!-- Stop & TP -->
+        <div class="card settings-section">
+          <h3>🎯 Stop & Take Profit</h3>
+          <div class="form-row">
+            <div class="form-label">İlk Stop Çarpanı<small>ATR × çarpan = stop mesafesi</small></div>
+            <input class="form-input" id="s-atr_mult_initial_stop" type="number" step="0.1" min="0.5">
+          </div>
+          <div class="form-row">
+            <div class="form-label">Aktivasyon Çarpanı<small>Trailing devreye giriş mesafesi</small></div>
+            <input class="form-input" id="s-trail_activation_mult" type="number" step="0.1" min="0.5">
+          </div>
+          <div class="form-row">
+            <div class="form-label">Trail Mesafe Çarpanı<small>Takip eden stop mesafesi</small></div>
+            <input class="form-input" id="s-atr_mult_trail" type="number" step="0.1" min="0.5">
+          </div>
+          <div class="form-row">
+            <div class="form-label">Take Profit Çarpanı<small>ATR × çarpan = TP mesafesi</small></div>
+            <input class="form-input" id="s-atr_mult_take_profit" type="number" step="0.1" min="0.5">
+          </div>
+          <div class="form-row">
+            <div class="form-label">Tarama Periyodu (sn)<small>Saniye cinsinden</small></div>
+            <input class="form-input" id="s-scan_interval_sec" type="number" min="30">
+          </div>
+        </div>
+
+        <!-- Strateji Eşikleri -->
+        <div class="card settings-section">
+          <h3>📊 Strateji Eşikleri</h3>
+          <div class="form-row">
+            <div class="form-label">WR Aşırı Alım<small>Williams %R overbought</small></div>
+            <input class="form-input" id="s-willr_ob" type="number" step="1">
+          </div>
+          <div class="form-row">
+            <div class="form-label">WR Aşırı Satım<small>Williams %R oversold</small></div>
+            <input class="form-input" id="s-willr_os" type="number" step="1">
+          </div>
+          <div class="form-row">
+            <div class="form-label">Stoch Aşırı Alım<small>Stochastic overbought</small></div>
+            <input class="form-input" id="s-stoch_ob" type="number" step="1" min="50" max="99">
+          </div>
+          <div class="form-row">
+            <div class="form-label">Stoch Aşırı Satım<small>Stochastic oversold</small></div>
+            <input class="form-input" id="s-stoch_os" type="number" step="1" min="1" max="50">
+          </div>
+          <div class="form-row">
+            <div class="form-label">RSI Overbought<small>RSI üst sınır</small></div>
+            <input class="form-input" id="s-rsi_ob" type="number" step="1" min="50" max="90">
+          </div>
+          <div class="form-row">
+            <div class="form-label">RSI Oversold<small>RSI alt sınır</small></div>
+            <input class="form-input" id="s-rsi_os" type="number" step="1" min="10" max="50">
+          </div>
+        </div>
+
+        <!-- Temel Filtreler -->
+        <div class="card settings-section">
+          <h3>🔧 Temel Filtreler</h3>
+          <div class="form-row">
+            <div class="form-label">RSI Filtresi<small>RSI bazlı sinyal filtresi</small></div>
+            <div class="form-toggle" onclick="toggleSetting('use_rsi_filter')">
+              <div class="toggle-track" id="toggle-use_rsi_filter"><div class="toggle-thumb"></div></div>
+              <span id="toggle-use_rsi_filter-lbl" style="font-size:11px;color:var(--muted)">—</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-label">EMA Filtresi<small>EMA50/EMA200 trend filtresi</small></div>
+            <div class="form-toggle" onclick="toggleSetting('use_ema_filter')">
+              <div class="toggle-track" id="toggle-use_ema_filter"><div class="toggle-thumb"></div></div>
+              <span id="toggle-use_ema_filter-lbl" style="font-size:11px;color:var(--muted)">—</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-label">Hacim Filtresi<small>Hacim oran kontrolü</small></div>
+            <div class="form-toggle" onclick="toggleSetting('use_vol_filter')">
+              <div class="toggle-track" id="toggle-use_vol_filter"><div class="toggle-thumb"></div></div>
+              <span id="toggle-use_vol_filter-lbl" style="font-size:11px;color:var(--muted)">—</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-label">HTF Onayı<small>Üst zaman dilimi trend onayı</small></div>
+            <div class="form-toggle" onclick="toggleSetting('use_htf_filter')">
+              <div class="toggle-track" id="toggle-use_htf_filter"><div class="toggle-thumb"></div></div>
+              <span id="toggle-use_htf_filter-lbl" style="font-size:11px;color:var(--muted)">—</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-label">Min Hacim Oranı<small>Ortalamaya göre minimum</small></div>
+            <input class="form-input" id="s-vol_ratio_min" type="number" step="0.1" min="0.5">
+          </div>
+          <div class="form-row">
+            <div class="form-label">Min ATR %<small>Volatilite eşiği</small></div>
+            <input class="form-input" id="s-min_atr_pct" type="number" step="0.001" min="0">
+          </div>
+          <div class="form-row">
+            <div class="form-label">Min Sinyal Gücü<small>Normal / Güçlü / Çok Güçlü</small></div>
+            <select class="form-input" id="s-min_strength" style="cursor:pointer;text-align:left">
+              <option value="Normal">Normal</option>
+              <option value="Güçlü">Güçlü</option>
+              <option value="Çok Güçlü">Çok Güçlü</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Gelişmiş Filtreler -->
+        <div class="card settings-section">
+          <h3>⚗️ Gelişmiş Filtreler</h3>
+          <div class="form-row">
+            <div class="form-label">2 Mum Crossover Onayı<small>WR 2 mum üst üste aşırı bölgede</small></div>
+            <div class="form-toggle" onclick="toggleSetting('use_two_candle_confirm')">
+              <div class="toggle-track" id="toggle-use_two_candle_confirm"><div class="toggle-thumb"></div></div>
+              <span id="toggle-use_two_candle_confirm-lbl" style="font-size:11px;color:var(--muted)">—</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-label">MACD Filtresi<small>Histogram yönü momentum onayı</small></div>
+            <div class="form-toggle" onclick="toggleSetting('use_macd_filter')">
+              <div class="toggle-track" id="toggle-use_macd_filter"><div class="toggle-thumb"></div></div>
+              <span id="toggle-use_macd_filter-lbl" style="font-size:11px;color:var(--muted)">—</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-label">Bollinger Bands Filtresi<small>Sıkışma sonrası genişleme</small></div>
+            <div class="form-toggle" onclick="toggleSetting('use_bb_filter')">
+              <div class="toggle-track" id="toggle-use_bb_filter"><div class="toggle-thumb"></div></div>
+              <span id="toggle-use_bb_filter-lbl" style="font-size:11px;color:var(--muted)">—</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-label">OBV Filtresi<small>Alıcı / satıcı hacim baskısı</small></div>
+            <div class="form-toggle" onclick="toggleSetting('use_obv_filter')">
+              <div class="toggle-track" id="toggle-use_obv_filter"><div class="toggle-thumb"></div></div>
+              <span id="toggle-use_obv_filter-lbl" style="font-size:11px;color:var(--muted)">—</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-label">ROC Filtresi<small>Aşırı momentum sonrası dönüş</small></div>
+            <div class="form-toggle" onclick="toggleSetting('use_roc_filter')">
+              <div class="toggle-track" id="toggle-use_roc_filter"><div class="toggle-thumb"></div></div>
+              <span id="toggle-use_roc_filter-lbl" style="font-size:11px;color:var(--muted)">—</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-label">ATR Trend Filtresi<small>ATR ortalamanın üstünde → aktif</small></div>
+            <div class="form-toggle" onclick="toggleSetting('use_atr_trend_filter')">
+              <div class="toggle-track" id="toggle-use_atr_trend_filter"><div class="toggle-thumb"></div></div>
+              <span id="toggle-use_atr_trend_filter-lbl" style="font-size:11px;color:var(--muted)">—</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-label">Ters Sinyalde Çıkış<small>Zıt sinyal gelince kapat</small></div>
+            <div class="form-toggle" onclick="toggleSetting('enable_reverse_exit')">
+              <div class="toggle-track" id="toggle-enable_reverse_exit"><div class="toggle-thumb"></div></div>
+              <span id="toggle-enable_reverse_exit-lbl" style="font-size:11px;color:var(--muted)">—</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-label">Ters Sinyalde Yeni Giriş<small>Çıkış sonrası ters yön aç</small></div>
+            <div class="form-toggle" onclick="toggleSetting('enable_reverse_entry')">
+              <div class="toggle-track" id="toggle-enable_reverse_entry"><div class="toggle-thumb"></div></div>
+              <span id="toggle-enable_reverse_entry-lbl" style="font-size:11px;color:var(--muted)">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- MACD -->
+        <div class="card settings-section">
+          <h3>📉 MACD Parametreleri</h3>
+          <div class="form-row">
+            <div class="form-label">MACD Hızlı EMA<small>Kısa EMA periyodu</small></div>
+            <input class="form-input" id="s-macd_fast" type="number" min="2">
+          </div>
+          <div class="form-row">
+            <div class="form-label">MACD Yavaş EMA<small>Uzun EMA periyodu</small></div>
+            <input class="form-input" id="s-macd_slow" type="number" min="5">
+          </div>
+          <div class="form-row">
+            <div class="form-label">MACD Sinyal<small>Sinyal EMA periyodu</small></div>
+            <input class="form-input" id="s-macd_signal" type="number" min="2">
+          </div>
+        </div>
+
+        <!-- Bollinger -->
+        <div class="card settings-section">
+          <h3>📐 Bollinger Bands</h3>
+          <div class="form-row">
+            <div class="form-label">BB Periyodu<small>Hareketli ortalama periyodu</small></div>
+            <input class="form-input" id="s-bb_period" type="number" min="5">
+          </div>
+          <div class="form-row">
+            <div class="form-label">BB Standart Sapma<small>Bant genişlik çarpanı</small></div>
+            <input class="form-input" id="s-bb_std" type="number" step="0.1" min="0.5">
+          </div>
+        </div>
+
+        <!-- OBV / ROC / ATR -->
+        <div class="card settings-section">
+          <h3>🔬 OBV / ROC / ATR</h3>
+          <div class="form-row">
+            <div class="form-label">OBV EMA Periyodu<small>OBV'nin EMA uzunluğu</small></div>
+            <input class="form-input" id="s-obv_ema_span" type="number" min="5">
+          </div>
+          <div class="form-row">
+            <div class="form-label">ROC Periyodu<small>Rate of Change mum sayısı</small></div>
+            <input class="form-input" id="s-roc_period" type="number" min="2">
+          </div>
+          <div class="form-row">
+            <div class="form-label">ROC Long Min (%)<small>Long için ROC alt sınırı</small></div>
+            <input class="form-input" id="s-roc_long_min_allowed" type="number" step="0.5">
+          </div>
+          <div class="form-row">
+            <div class="form-label">ROC Short Maks (%)<small>Short için ROC üst sınırı</small></div>
+            <input class="form-input" id="s-roc_short_max_allowed" type="number" step="0.5">
+          </div>
+          <div class="form-row">
+            <div class="form-label">ATR MA Periyodu<small>ATR trend ortalaması</small></div>
+            <input class="form-input" id="s-atr_ma_period" type="number" min="5">
+          </div>
+        </div>
+
+        <!-- Zaman & EMA -->
+        <div class="card settings-section">
+          <h3>⏱ Zaman & EMA</h3>
+          <div class="form-row">
+            <div class="form-label">Ana Interval<small>Sinyal zaman dilimi</small></div>
+            <select class="form-input" id="s-interval" style="cursor:pointer;text-align:left">
+              <option value="1m">1m</option>
+              <option value="3m">3m</option>
+              <option value="5m">5m</option>
+              <option value="15m">15m</option>
+              <option value="30m">30m</option>
+              <option value="1h">1h</option>
+              <option value="4h">4h</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-label">HTF Interval<small>Üst zaman dilimi</small></div>
+            <select class="form-input" id="s-interval_confirm" style="cursor:pointer;text-align:left">
+              <option value="5m">5m</option>
+              <option value="15m">15m</option>
+              <option value="30m">30m</option>
+              <option value="1h">1h</option>
+              <option value="4h">4h</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-label">EMA Hızlı<small>Hızlı EMA periyodu</small></div>
+            <input class="form-input" id="s-ema_fast" type="number" min="5">
+          </div>
+          <div class="form-row">
+            <div class="form-label">EMA Yavaş<small>Yavaş EMA periyodu</small></div>
+            <input class="form-input" id="s-ema_slow" type="number" min="20">
+          </div>
+          <div class="form-row">
+             <div class="form-label">
+                EMA Yavaş
+                <small>Yavaş EMA periyodu</small>
+            </div>
+            <input class="form-input" id="s-ema_slow" type="number" min="20">
+          </div>
+
+<!-- ↓ YENİ SATIR EKLE -->
+        <div class="form-row">
+            <div class="form-label">
+                HTF EMA Periyodu
+                <small>Fiyat üstünde → UP, altında → DOWN</small>
+        </div>
+        <input class="form-input" id="s-ema_htf_period" type="number" min="5" max="200" step="1">
+      </div>
+          
+          
+          
+          
+          
+          <div class="form-row">
+            <div class="form-label">ATR Periyodu</div>
+            <input class="form-input" id="s-atr_span" type="number" min="5">
+          </div>
+          <div class="form-row">
+            <div class="form-label">RSI Periyodu</div>
+            <input class="form-input" id="s-rsi_span" type="number" min="5">
+          </div>
+        </div>
+
+        <!-- Sembol Listesi -->
+        <div class="card settings-section" style="grid-column:1/-1">
+          <h3>📋 Taranacak Semboller</h3>
+          <p style="font-size:11px;color:var(--muted);margin-bottom:10px">Her satıra bir sembol. Örnek: BTCUSDT</p>
+          <textarea id="symbol-editor" spellcheck="false"></textarea>
+          <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+            <span id="symbol-count" style="font-size:11px;color:var(--muted)">0 sembol</span>
+            <button class="btn btn-outline" style="font-size:11px;padding:4px 12px" onclick="resetSymbols()">Varsayılana Dön</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- LOGS -->
+    <div class="panel" id="panel-logs">
+      <div class="section-hdr">
+        <h2>Bot Logları</h2>
+        <button class="btn btn-outline" style="font-size:11px;padding:5px 12px" onclick="clearLogs()">🗑 Temizle</button>
+      </div>
+      <div class="card" style="padding:16px">
+        <div id="log-panel"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- CONFIRM MODAL (genel) -->
+<div id="modal-overlay">
+  <div class="modal-box" id="modal-box">
+    <h2 id="modal-title">Emin misiniz?</h2>
+    <p  id="modal-msg">Bu işlemi onaylıyor musunuz?</p>
+    <div id="modal-live-confirm" style="display:none">
+      <label>Onaylamak için aşağıya <strong>CANLI</strong> yazın:</label>
+      <input type="text" id="live-confirm-input" placeholder="CANLI">
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-outline" onclick="closeModal()">İptal</button>
+      <button class="btn btn-red"     id="modal-confirm-btn" onclick="modalConfirm()">Onayla</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ─────────────────────────────────────────────────
+// DEFAULTS
+// ─────────────────────────────────────────────────
+const DEFAULT_SYMBOLS = [
+    'BTCUSDT','ETHUSDT','RAVEUSDT','SOLUSDT','XAGUSDT',
+    'DOGEUSDT','ZECUSDT','XRPUSDT','BLESSUSDT','HYPEUSDT',
+    'ARIAUSDT','1000PEPEUSDT','MYXUSDT','BNBUSDT','ALPHAUSDT','ENJUSDT','TAOUSDT',
+    'BARDUSDT','ADAUSDT','GIGGLEUSDT','ZAMAUSDT','PORT3USDT','AVAXUSDT',
+    'ENAUSDT','PAXGUSDT','SUIUSDT','LINKUSDT','RIVERUSDT','CRCLUSDT','COAIUSDT',
+    'DOTUSDT','WLDUSDT','NEARUSDT','UXLINKUSDT','SXPUSDT','APRUSDT',
+    'AGIXUSDT','AAVEUSDT','TRUMPUSDT','TSLAUSDT','ASTERUSDT','WETUSDT','SIRENUSDT',
+    'FARTCOINUSDT','ONUSDT','MEMEFIUSDT','LEVERUSDT','TRADOORUSDT',
+    'PUMPUSDT','NEIROETHUSDT','BCHUSDT','A2ZUSDT','FILUSDT','FTMUSDT','WAVESUSDT',
+    'XPLUSDT','LABUSDT','LTCUSDT','OMNIUSDT','YALAUSDT','AMBUSDT','BSWUSDT',
+    'OCEANUSDT','VVVUSDT','1000SHIBUSDT','DASHUSDT','UNIUSDT','LDOUSDT',
+    'STRAXUSDT','MONUSDT','PENGUUSDT','STOUSDT','RENUSDT','CRVUSDT',
+    'UNFIUSDT','1000BONKUSDT','WLFIUSDT','FETUSDT','TRXUSDT','DGBUSDT','MSTRUSDT',
+    'WIFUSDT','INXUSDT','AIOTUSDT','NEIROUSDT','APTUSDT',
+    'ARBUSDT','PIPPINUSDT','AIAUSDT','CCUSDT','HIFIUSDT','BEATUSDT','BROCCOLI714USDT',
+    'OMUSDT','INTCUSDT','VIRTUALUSDT','BRUSDT','AKEUSDT','OPUSDT','PLUMEUSDT',
+    'CHESSUSDT','DUSDT','42USDT','SNTUSDT','MKRUSDT','TONUSDT','GALAUSDT','SIGNUSDT',
+    'ALGOUSDT','ONDOUSDT','HOODUSDT','HEMIUSDT','EPTUSDT',
+    'LITUSDT','ETCUSDT','XLMUSDT','HBARUSDT','TANSSIUSDT','SLERFUSDT',
+    '4USDT','RENDERUSDT','BLZUSDT','XMRUSDT','PLAYUSDT','BUSDT','NIGHTUSDT',
+    'TSTUSDT','BAKEUSDT','INUSDT','TREEUSDT',
+    'CYSUSDT','BULLAUSDT','KITEUSDT','KOMAUSDT','OGUSDT','CAKEUSDT',
+    'SKYAIUSDT','COINUSDT','PTBUSDT','MUSDT','USELESSUSDT',
+    'PIXELUSDT','TRUUSDT','LOKAUSDT','ORDIUSDT','ONTUSDT','TIAUSDT',
+    'FORMUSDT','0GUSDT','RDNTUSDT','COMPUSDT','AXSUSDT',
+    'GUAUSDT','POWERUSDT','ZROUSDT','KEYUSDT','BIOUSDT','ICPUSDT','LIGHTUSDT',
+    'SEIUSDT','REDUSDT','POLUSDT','TAKEUSDT','TRIAUSDT',
+    'HUSDT','DRIFTUSDT','VOXELUSDT','INJUSDT','BROCCOLIF3BUSDT','BANUSDT',
+    'BDXNUSDT','PNUTUSDT','ZENUSDT','IPUSDT','CHZUSDT','BOMEUSDT','MDTUSDT',
+    'DUSKUSDT','MERLUSDT','PLTRUSDT','MUBARAKUSDT','FISUSDT','CUSDT',
+    'BLURUSDT','ETHFIUSDT','KAITOUSDT','MAGMAUSDT','ATOMUSDT','TUTUSDT',
+    'NVDAUSDT','HOLOUSDT','AMZNUSDT','1000FLOKIUSDT','SANDUSDT','PENDLEUSDT',
+    'PUFFERUSDT','KLAYUSDT','RESOLVUSDT','JUPUSDT','COMMONUSDT',
+    'STRKUSDT','PEOPLEUSDT','AVAAIUSDT','FIGHTUSDT','BANANAS31USDT',
+    'FUNUSDT','AIOUSDT','SWARMSUSDT','REEFUSDT','SKATEUSDT',
+    'ORDERUSDT','HIPPOUSDT','XNYUSDT','EIGENUSDT','PROMUSDT','JTOUSDT','JSTUSDT',
+    'SOONUSDT','HOOKUSDT','SAHARAUSDT','DARUSDT','COLLECTUSDT','XANUSDT','SNXUSDT',
+    'USDCUSDT','SUPERUSDT','STABLEUSDT','ONGUSDT','POLYXUSDT','XTZUSDT','ARCUSDT',
+    'HUMAUSDT','PUMPBTCUSDT','SPXUSDT','FLOWUSDT','TURBOUSDT','EDUUSDT',
+    'DEXEUSDT','MOODENGUSDT','ATUSDT','CUDISUSDT','XPINUSDT',
+    'XPTUSDT','BASUSDT','FHEUSDT','HYPERUSDT','CTSIUSDT','WUSDT','ARUSDT',
+    'EULUSDT','ARKMUSDT','BERAUSDT','MORPHOUSDT','LPTUSDT','GOOGLUSDT','COWUSDT',
+    'XVGUSDT','YBUSDT','KERNELUSDT',
+];
+
+const DEFAULTS = {
+  api_key                  : '',
+  api_secret               : '',
+  testnet                  : true,
+  trading_mode             : 'paper',
+  interval                 : '15m',
+  interval_confirm         : '1h',
+  portfolio_usd            : 500,
+  leverage                 : 3,
+  max_long                 : 15,
+  max_short                : 15,
+  min_trade_usd            : 5,
+  willr_window             : 14,
+  willr_ob                 : -15,
+  willr_os                 : -85,
+  stoch_k                  : 14,
+  stoch_d                  : 3,
+  stoch_ob                 : 85,
+  stoch_os                 : 15,
+  rsi_span                 : 14,
+  rsi_ob                   : 65,
+  rsi_os                   : 35,
+  atr_span                 : 14,
+  ema_fast                 : 50,
+  ema_slow                 : 200,
+  ema_confirm_fast         : 20,
+  ema_confirm_slow         : 50,
+  ema_htf_period           : 28,
+  vol_ma_period            : 20,
+  vol_ratio_min            : 1.2,
+  atr_mult_initial_stop    : 2.0,
+  trail_activation_mult    : 1.1,
+  atr_mult_trail           : 2.0,
+  atr_mult_take_profit     : 4.0,
+  macd_fast                : 12,
+  macd_slow                : 26,
+  macd_signal              : 9,
+  bb_period                : 20,
+  bb_std                   : 2.0,
+  obv_ema_span             : 20,
+  roc_period               : 10,
+  roc_long_min_allowed     : -5.0,
+  roc_short_max_allowed    : 5.0,
+  atr_ma_period            : 20,
+  use_rsi_filter           : true,
+  use_ema_filter           : false,
+  use_vol_filter           : true,
+  use_htf_filter           : false,
+  use_macd_filter          : false,
+  use_bb_filter            : false,
+  use_obv_filter           : false,
+  use_roc_filter           : false,
+  use_atr_trend_filter     : false,
+  use_two_candle_confirm   : false,
+  enable_reverse_exit      : true,
+  enable_reverse_entry     : true,
+  min_atr_pct              : 0.003,
+  min_strength             : 'Güçlü',
+  scan_interval_sec        : 180,
+  symbols                  : DEFAULT_SYMBOLS,
+};
+
+// ─────────────────────────────────────────────────
+// ALAN LİSTELERİ
+// ─────────────────────────────────────────────────
+const NUMERIC_FIELDS = [
+  'portfolio_usd','leverage','max_long','max_short','min_trade_usd',
+  'willr_ob','willr_os','stoch_ob','stoch_os','rsi_ob','rsi_os',
+  'atr_mult_initial_stop','trail_activation_mult','atr_mult_trail','atr_mult_take_profit',
+  'scan_interval_sec','vol_ratio_min','min_atr_pct','ema_fast','ema_slow',
+  'atr_span','rsi_span','macd_fast','macd_slow','macd_signal',
+  'bb_period','bb_std','obv_ema_span','roc_period',
+  'roc_long_min_allowed','roc_short_max_allowed','atr_ma_period','ema_htf_period',
+];
+const STRING_FIELDS = ['api_key','api_secret'];
+const SELECT_FIELDS = ['interval','interval_confirm','min_strength'];
+
+const TOGGLE_KEYS = [
+  'testnet',
+  'use_rsi_filter','use_ema_filter','use_vol_filter','use_htf_filter',
+  'use_two_candle_confirm','use_macd_filter','use_bb_filter',
+  'use_obv_filter','use_roc_filter','use_atr_trend_filter',
+  'enable_reverse_exit','enable_reverse_entry',
+];
+
+const FILTER_TAG_MAP = {
+  use_rsi_filter         : 'ftag-rsi',
+  use_ema_filter         : 'ftag-ema',
+  use_vol_filter         : 'ftag-vol',
+  use_htf_filter         : 'ftag-htf',
+  use_macd_filter        : 'ftag-macd',
+  use_bb_filter          : 'ftag-bb',
+  use_obv_filter         : 'ftag-obv',
+  use_roc_filter         : 'ftag-roc',
+  use_atr_trend_filter   : 'ftag-atr_trend',
+  use_two_candle_confirm : 'ftag-two_candle',
+  enable_reverse_exit    : 'ftag-reverse_exit',
+  enable_reverse_entry   : 'ftag-reverse_entry',
+};
+
+const MODE_DESC = {
+  paper:   'Paper mod: Binance\'den gerçek zamanlı veri çeker. Hiçbir emir gönderilmez. Tüm işlemler sanal hafızada tutulur. Güvenli test ortamı.',
+  testnet: 'Testnet mod: Binance test ağında gerçek emir mekanizması çalışır ancak para sahneldir. API Key/Secret olarak testnet anahtarları gerekir.',
+  live:    '⚠️ CANLI MOD: Gerçek Binance Futures hesabında gerçek para ile emir açılır ve kapatılır. Kayıp riski tamamen size aittir.',
+};
+
+// ─────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────
+let state        = {};
+let modalAction  = null;
+let nextScan     = null;
+let lastLogCount = 0;
+let toggleStates = {};
+let currentMode  = 'paper';
+let pendingMode  = null;
+let requireLiveConfirm = false;
+
+TOGGLE_KEYS.forEach(k => { toggleStates[k] = DEFAULTS[k]; });
+
+// ─────────────────────────────────────────────────
+// SAYFA YÜKLENDİĞİNDE
+// ─────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  fillSettings(DEFAULTS);
+  updateFilterSummary(DEFAULTS);
+  applyModePill('paper');
+  setSymbolEditor(DEFAULT_SYMBOLS);
+});
+
+// ─────────────────────────────────────────────────
+// SEMBOL EDİTÖRÜ
+// ─────────────────────────────────────────────────
+const symEditor = document.getElementById('symbol-editor');
+symEditor.addEventListener('input', updateSymbolCount);
+
+function setSymbolEditor(arr) {
+  symEditor.value = arr.join('\n');
+  updateSymbolCount();
+}
+function getSymbolsFromEditor() {
+  return symEditor.value
+    .split('\n')
+    .map(s => s.trim().toUpperCase())
+    .filter(s => s.length > 0);
+}
+function updateSymbolCount() {
+  document.getElementById('symbol-count').textContent =
+    `${getSymbolsFromEditor().length} sembol`;
+}
+function resetSymbols() {
+  setSymbolEditor(DEFAULT_SYMBOLS);
+  toast('Sembol listesi varsayılana döndürüldü', 'success');
+}
+
+// ─────────────────────────────────────────────────
+// MOD SEÇİCİ
+// ─────────────────────────────────────────────────
+function selectMode(mode) {
+  if (mode === 'live') {
+    // Canlı moda geçiş onay modalı
+    pendingMode = 'live';
+    requireLiveConfirm = true;
+    openModal(
+      '⚠️ CANLI MODA GEÇİŞ',
+      'Bu mod gerçek para ile gerçek emir açar.\nKayıp riski tamamen size aittir.\nOnaylamak için aşağıya CANLI yazın.',
+      () => {
+        const inp = document.getElementById('live-confirm-input').value.trim();
+        if (inp !== 'CANLI') {
+          toast('❌ Onay kelimesi yanlış. Geçiş iptal edildi.', 'error');
+          return;
+        }
+        applyModeSelection('live');
+      },
+      true  // live confirm göster
+    );
+  } else {
+    applyModeSelection(mode);
+  }
+}
+
+function applyModeSelection(mode) {
+  currentMode = mode;
+  document.getElementById('s-trading_mode').value = mode;
+  applyModePill(mode);
+
+  // Buton stillerini güncelle
+  ['paper','testnet','live'].forEach(m => {
+    const btn = document.getElementById(`mbtn-${m}`);
+    btn.className = `mode-btn${mode === m ? ` active-${m}` : ''}`;
+  });
+
+  // Açıklama kutusu
+  const desc = document.getElementById('mode-desc-box');
+  desc.className = `mode-desc ${mode}`;
+  desc.textContent = MODE_DESC[mode];
+
+  if (mode === 'live') {
+    toast('⚠️ Canlı mod seçildi — Kaydetmeyi unutmayın!', 'warn');
+  } else if (mode === 'testnet') {
+    toast('🧪 Testnet modu seçildi — Testnet API anahtarlarını girin.', 'success');
+  } else {
+    toast('📋 Paper mod seçildi — Güvenli test ortamı.', 'success');
+  }
+}
+
+function applyModePill(mode) {
+  const pill = document.getElementById('mode-pill');
+  const liveBar = document.getElementById('live-bar');
+  if (mode === 'live') {
+    pill.className = 'live';
+    pill.textContent = '🔴 CANLI';
+    liveBar.classList.add('show');
+  } else if (mode === 'testnet') {
+    pill.className = 'testnet';
+    pill.textContent = '🧪 TESTNET';
+    liveBar.classList.remove('show');
+  } else {
+    pill.className = 'paper';
+    pill.textContent = '📋 PAPER';
+    liveBar.classList.remove('show');
+  }
+}
+
+// ─────────────────────────────────────────────────
+// SOCKET.IO
+// ─────────────────────────────────────────────────
+const socket = io();
+socket.on('connect',       () => fetchState());
+socket.on('state_update',  (s) => applyState(s));
+socket.on('scan_complete', (d) => {
+  toast(`Tarama #${d.scan_num} → LONG:${d.results.long} SHORT:${d.results.short} Kapandı:${d.results.closed}`, 'success');
+  nextScan = Date.now() + (state.config?.scan_interval_sec || 180) * 1000;
+});
+
+function fetchState() {
+  fetch('/api/state')
+    .then(r => r.json())
+    .then(applyState)
+    .catch(e => console.error('fetchState:', e));
+}
+
+// ─────────────────────────────────────────────────
+// APPLY STATE
+// ─────────────────────────────────────────────────
+function applyState(s) {
+  state = s;
+
+  setPnlVal('tb-portfolio',
+    `$${(s.portfolio_total ?? 0).toFixed(2)}`,
+    (s.portfolio_total ?? 0) - (s.portfolio_start ?? 0));
+  setPnlVal('tb-realized',
+    `$${(s.realized_pnl ?? 0) >= 0 ? '+' : ''}${(s.realized_pnl ?? 0).toFixed(4)}`,
+    s.realized_pnl ?? 0);
+  setPnlVal('tb-unrealized',
+    `$${(s.unrealized_pnl ?? 0) >= 0 ? '+' : ''}${(s.unrealized_pnl ?? 0).toFixed(4)}`,
+    s.unrealized_pnl ?? 0);
+  setPnlVal('tb-total-ret',
+    `${(s.total_ret_pct ?? 0) >= 0 ? '+' : ''}${(s.total_ret_pct ?? 0).toFixed(2)}%`,
+    s.total_ret_pct ?? 0);
+  document.getElementById('tb-winrate').textContent = `${(s.win_rate ?? 0).toFixed(1)}%`;
+
+  // Status pill
+  const pill = document.getElementById('status-pill');
+  pill.className = s.scanning ? 'scanning' : (s.running ? 'running' : '');
+  document.getElementById('status-text').textContent =
+    s.scanning ? 'TARANIYOR' : (s.running ? 'ÇALIŞIYOR' : 'DURDURULDU');
+
+  // Butonlar
+  document.getElementById('btn-start').style.display = s.running ? 'none' : 'flex';
+  document.getElementById('btn-stop').style.display  = s.running ? 'flex' : 'none';
+
+  const btnPause = document.getElementById('btn-pause');
+  if (s.pause_new) {
+    btnPause.style.cssText = 'display:flex;align-items:center;gap:6px;background:#2a1800;color:var(--yellow);border:1px solid var(--yellow);padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer';
+    btnPause.textContent = '▶ Yeni Pos. Aç';
+  } else {
+    btnPause.style.cssText = 'display:flex;align-items:center;gap:6px;background:var(--yellow);color:#000;border:none;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer';
+    btnPause.textContent = '⏸ Yeni Pos. Durdur';
+  }
+  document.getElementById('pause-bar').classList.toggle('show', !!s.pause_new);
+
+  // Dashboard
+  document.getElementById('d-pf-start').textContent = `$${(s.portfolio_start ?? 0).toFixed(2)}`;
+  setPnlEl('d-pf-now',   `$${(s.portfolio_now   ?? 0).toFixed(2)}`, (s.portfolio_now   ?? 0) - (s.portfolio_start ?? 0));
+  setPnlEl('d-pf-total', `$${(s.portfolio_total ?? 0).toFixed(2)}`, (s.portfolio_total ?? 0) - (s.portfolio_start ?? 0));
+  document.getElementById('d-pf-ret').textContent   = `${(s.total_ret_pct ?? 0) >= 0 ? '+' : ''}${(s.total_ret_pct ?? 0).toFixed(2)}%`;
+  setPnlEl('d-real',   `$${(s.realized_pnl   ?? 0) >= 0 ? '+' : ''}${(s.realized_pnl   ?? 0).toFixed(4)}`, s.realized_pnl   ?? 0);
+  setPnlEl('d-unreal', `$${(s.unrealized_pnl ?? 0) >= 0 ? '+' : ''}${(s.unrealized_pnl ?? 0).toFixed(4)}`, s.unrealized_pnl ?? 0);
+
+  const longs  = (s.positions ?? []).filter(p => p.direction === 'LONG').length;
+  const shorts = (s.positions ?? []).filter(p => p.direction === 'SHORT').length;
+  document.getElementById('d-wr').textContent        = `${(s.win_rate ?? 0).toFixed(1)}%`;
+  document.getElementById('d-wr-sub').textContent    = `${s.wins ?? 0}W / ${s.losses ?? 0}L`;
+  document.getElementById('d-open').textContent      = s.active_count ?? 0;
+  document.getElementById('d-open-sub').textContent  = `${longs} Long / ${shorts} Short`;
+  document.getElementById('d-scan-cnt').textContent   = s.scan_counter ?? 0;
+  document.getElementById('d-scan-sub').textContent   = `${s.config?.scan_interval_sec ?? 180}sn periyot`;
+
+  document.getElementById('badge-pos').textContent    = s.active_count ?? 0;
+  document.getElementById('badge-trades').textContent = (s.closed_trades ?? []).length;
+
+  renderPositions(s.positions     ?? []);
+  renderTrades   (s.closed_trades ?? []);
+  renderLogs     (s.logs          ?? []);
+
+  if (s.config) {
+    fillSettings(s.config);
+    updateFilterSummary(s.config);
+    if (s.config.trading_mode) {
+      const m = s.config.trading_mode;
+      currentMode = m;
+      applyModePill(m);
+      ['paper','testnet','live'].forEach(bm => {
+        const btn = document.getElementById(`mbtn-${bm}`);
+        btn.className = `mode-btn${m === bm ? ` active-${bm}` : ''}`;
+      });
+      const desc = document.getElementById('mode-desc-box');
+      desc.className = `mode-desc ${m}`;
+      desc.textContent = MODE_DESC[m];
+      document.getElementById('s-trading_mode').value = m;
+    }
+    if (Array.isArray(s.config.symbols)) {
+      setSymbolEditor(s.config.symbols);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────
+// FİLTRE ÖZETİ
+// ─────────────────────────────────────────────────
+function updateFilterSummary(cfg) {
+  for (const [key, tagId] of Object.entries(FILTER_TAG_MAP)) {
+    const el = document.getElementById(tagId);
+    if (!el) continue;
+    const on = !!cfg[key];
+    el.classList.toggle('on',  on);
+    el.classList.toggle('off', !on);
+  }
+}
+
+// ─────────────────────────────────────────────────
+// PNL YARDIMCILARI
+// ─────────────────────────────────────────────────
+function setPnlVal(id, text, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = value > 0 ? 'var(--green)' : (value < 0 ? 'var(--red)' : 'var(--white)');
+}
+function setPnlEl(id, text, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = value > 0 ? 'var(--green)' : (value < 0 ? 'var(--red)' : 'var(--white)');
+}
+
+// ─────────────────────────────────────────────────
+// RENDER POSITIONS
+// ─────────────────────────────────────────────────
+function renderPositions(positions) {
+  const wrap = document.getElementById('pos-table-wrap');
+  const dash = document.getElementById('dash-pos-table');
+  if (!positions.length) {
+    const empty = `<div class="empty-state"><div class="icon">📭</div><p>Açık pozisyon yok</p></div>`;
+    wrap.innerHTML = empty; dash.innerHTML = empty;
+    return;
+  }
+  let html = `<table>
+  <thead><tr>
+    <th>Sembol</th><th>Yön</th><th>Giriş</th><th>Güncel</th>
+    <th>Stop</th><th>Stop %</th><th>Net P&L</th><th>Kld%</th>
+    <th>Trailing</th><th>Güç</th><th>HTF</th><th>Süre</th><th>İşlem</th>
+  </tr></thead><tbody>`;
+  for (const p of positions) {
+    const pnlCls = p.net_pnl >= 0 ? 'pos' : 'neg';
+    const dir    = p.direction === 'LONG'
+      ? '<span class="long-badge">LONG</span>'
+      : '<span class="short-badge">SHORT</span>';
+    const trail  = p.trail_active
+      ? '<span class="trail-on">🎯 Aktif</span>'
+      : '<span class="trail-off">🛡 Bekle</span>';
+    const prog   = Math.max(0, Math.min(1, (p.stop_dist + 5) / 10));
+    const barCls = prog > 0.6 ? 'bar-green' : (prog > 0.3 ? 'bar-yellow' : 'bar-red');
+    const stopDistStr = `${p.stop_dist > 0 ? '+' : ''}${(p.stop_dist ?? 0).toFixed(2)}%`;
+    html += `<tr>
+      <td class="td-label" style="font-weight:700">${p.symbol}</td>
+      <td>${dir}</td>
+      <td>${p.entry}</td>
+      <td style="font-weight:700">${p.current}</td>
+      <td>${p.stop}</td>
+      <td>
+        <div class="stop-bar">
+          <span class="${p.stop_dist < 0.5 ? 'neg' : 'neu'}" style="min-width:52px">${stopDistStr}</span>
+          <div class="bar-track">
+            <div class="bar-fill ${barCls}" style="width:${(prog*100).toFixed(0)}%"></div>
+          </div>
+        </div>
+      </td>
+      <td class="${pnlCls}">$${p.net_pnl >= 0 ? '+' : ''}${p.net_pnl}</td>
+      <td class="${pnlCls}">${p.lev_pct >= 0 ? '+' : ''}${p.lev_pct}%</td>
+      <td>${trail}</td>
+      <td>${strengthBadge(p.strength)}</td>
+      <td style="font-size:11px;color:var(--muted)">${p.htf_trend}</td>
+      <td style="color:var(--muted)">${p.age_min}dk</td>
+      <td><button class="btn-close-pos" onclick="confirmClose('${p.symbol}')">Kapat</button></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html; dash.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────
+// RENDER TRADES
+// ─────────────────────────────────────────────────
+function renderTrades(trades) {
+  const wrap = document.getElementById('trades-table-wrap');
+  if (!trades.length) {
+    wrap.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>Henüz kapanan işlem yok</p></div>`;
+    document.getElementById('trades-summary').textContent = '—';
+    return;
+  }
+  const totalPnl = state.realized_pnl ?? 0;
+  document.getElementById('trades-summary').innerHTML =
+    `<span class="${totalPnl >= 0 ? 'pos' : 'neg'}" style="font-family:var(--font-mono)">
+      $${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(4)}</span>
+    &nbsp;|&nbsp; Win: <span class="pos">${state.wins ?? 0}</span>
+    &nbsp;/ Loss: <span class="neg">${state.losses ?? 0}</span>
+    &nbsp;| WR: <span style="color:var(--cyan)">${(state.win_rate ?? 0).toFixed(1)}%</span>`;
+  let html = `<table>
+  <thead><tr>
+    <th>Tarih</th><th>Sembol</th><th>Yön</th>
+    <th>Giriş</th><th>Çıkış</th>
+    <th>Net P&L</th><th>Kld%</th>
+    <th>Süre</th><th>Trailing</th><th>Güç</th><th>Neden</th>
+  </tr></thead><tbody>`;
+  for (const t of trades) {
+    const pnlCls = t.net_pnl >= 0 ? 'pos' : 'neg';
+    const dir    = t.direction === 'LONG'
+      ? '<span class="long-badge">LONG</span>'
+      : '<span class="short-badge">SHORT</span>';
+    const icon   = t.net_pnl >= 0 ? '✅' : '❌';
+    const trail  = t.trail_active ? '🎯' : '🛡';
+    html += `<tr>
+      <td style="font-size:11px;color:var(--muted)">${t.close_time}</td>
+      <td class="td-label" style="font-weight:700">${icon} ${t.symbol}</td>
+      <td>${dir}</td>
+      <td>${t.entry}</td>
+      <td>${t.exit}</td>
+      <td class="${pnlCls}">$${t.net_pnl >= 0 ? '+' : ''}${t.net_pnl}</td>
+      <td class="${pnlCls}">${t.lev_pct >= 0 ? '+' : ''}${t.lev_pct}%</td>
+      <td style="color:var(--muted)">${t.duration_min}dk</td>
+      <td style="font-size:13px">${trail}</td>
+      <td>${strengthBadge(t.strength)}</td>
+      <td style="font-size:11px;color:var(--muted)">${t.reason}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────
+// RENDER LOGS
+// ─────────────────────────────────────────────────
+function renderLogs(logs) {
+  if (logs.length === lastLogCount) return;
+  lastLogCount = logs.length;
+  const panel = document.getElementById('log-panel');
+  panel.innerHTML = [...logs].reverse().map(l => {
+    const m = l.match(/^\[(\d{2}:\d{2}:\d{2})\] (.+)$/);
+    if (m) return `<div><span class="log-time">${m[1]}</span>${escHtml(m[2])}</div>`;
+    return `<div>${escHtml(l)}</div>`;
+  }).join('');
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function strengthBadge(s) {
+  if (s === 'Çok Güçlü') return `<span class="strength-badge str-cok">ÇOK GÜÇLÜ</span>`;
+  if (s === 'Güçlü')     return `<span class="strength-badge str-guclu">GÜÇLÜ</span>`;
+  return `<span class="strength-badge str-normal">${s || '—'}</span>`;
+}
+
+// ─────────────────────────────────────────────────
+// SETTINGS
+// ─────────────────────────────────────────────────
+function fillSettings(cfg) {
+  for (const k of NUMERIC_FIELDS) {
+    const el = document.getElementById(`s-${k}`);
+    if (el && cfg[k] !== undefined) el.value = cfg[k];
+  }
+  for (const k of STRING_FIELDS) {
+    const el = document.getElementById(`s-${k}`);
+    if (el && cfg[k] !== undefined) el.value = cfg[k];
+  }
+  for (const k of SELECT_FIELDS) {
+    const el = document.getElementById(`s-${k}`);
+    if (el && cfg[k] !== undefined) el.value = cfg[k];
+  }
+  for (const k of TOGGLE_KEYS) {
+    if (cfg[k] === undefined) continue;
+    const val   = !!cfg[k];
+    const track = document.getElementById(`toggle-${k}`);
+    const lbl   = document.getElementById(`toggle-${k}-lbl`);
+    toggleStates[k] = val;
+    if (track) track.classList.toggle('on', val);
+    if (lbl)   lbl.textContent = val ? 'Açık' : 'Kapalı';
+  }
+}
+
+function toggleSetting(key) {
+  toggleStates[key] = !toggleStates[key];
+  const track = document.getElementById(`toggle-${key}`);
+  const lbl   = document.getElementById(`toggle-${key}-lbl`);
+  if (track) track.classList.toggle('on', toggleStates[key]);
+  if (lbl)   lbl.textContent = toggleStates[key] ? 'Açık' : 'Kapalı';
+}
+
+function saveSettings() {
+  const payload = {};
+  for (const k of NUMERIC_FIELDS) {
+    const el = document.getElementById(`s-${k}`);
+    if (el && el.value !== '') payload[k] = parseFloat(el.value);
+  }
+  for (const k of STRING_FIELDS) {
+    const el = document.getElementById(`s-${k}`);
+    if (el) payload[k] = el.value;
+  }
+  for (const k of SELECT_FIELDS) {
+    const el = document.getElementById(`s-${k}`);
+    if (el) payload[k] = el.value;
+  }
+  for (const [k, v] of Object.entries(toggleStates)) {
+    payload[k] = v;
+  }
+  payload.trading_mode = document.getElementById('s-trading_mode').value;
+  payload.symbols = getSymbolsFromEditor();
+
+  fetch('/api/config', {
+    method  : 'POST',
+    headers : { 'Content-Type': 'application/json' },
+    body    : JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      toast('✅ Ayarlar kaydedildi!', 'success');
+      if (d.config) updateFilterSummary(d.config);
+      if (payload.trading_mode === 'live') {
+        toast('⚠️ CANLI MOD AKTİF — Botu yeniden başlatın!', 'warn');
+      }
+    } else {
+      toast('❌ Hata: ' + (d.msg || 'Kayıt başarısız'), 'error');
+    }
+  })
+  .catch(() => toast('❌ Sunucuya ulaşılamadı', 'error'));
+}
+
+// ─────────────────────────────────────────────────
+// ACTIONS
+// ─────────────────────────────────────────────────
+function startBot() {
+  if (currentMode === 'live') {
+    openModal(
+      '🔴 CANLI MOD — Botu Başlat',
+      'Gerçek para ile emir açılacak. Devam etmek istiyor musunuz?',
+      () => {
+        fetch('/api/start', { method:'POST' })
+          .then(r => r.json())
+          .then(d => {
+            toast(d.msg, d.ok ? 'success' : 'error');
+            if (d.ok) nextScan = Date.now() + (state.config?.scan_interval_sec || 180) * 1000;
+          });
+      }
+    );
+  } else {
+    fetch('/api/start', { method:'POST' })
+      .then(r => r.json())
+      .then(d => {
+        toast(d.msg, d.ok ? 'success' : 'error');
+        if (d.ok) nextScan = Date.now() + (state.config?.scan_interval_sec || 180) * 1000;
+      });
+  }
+}
+
+function togglePause() {
+  fetch('/api/toggle_pause', { method:'POST' })
+    .then(r => r.json())
+    .then(d => toast(
+      d.paused ? '⏸ Yeni pozisyon açma durduruldu' : '▶ Yeni pozisyon açma aktif',
+      'success'
+    ));
+}
+
+function doScan() {
+  fetch('/api/scan', { method:'POST' })
+    .then(r => r.json())
+    .then(d => toast(d.msg, 'success'));
+}
+
+function confirmClose(symbol) {
+  openModal(
+    `${symbol} Kapat`,
+    `${symbol} pozisyonu güncel fiyatından kapatılacak. Devam edilsin mi?`,
+    () => closePos(symbol)
+  );
+}
+function closePos(symbol) {
+  fetch(`/api/close/${symbol}`, { method:'POST' })
+    .then(r => r.json())
+    .then(d => toast(d.msg, d.ok ? 'success' : 'error'));
+}
+
+function confirmCloseAll() {
+  const n = state.active_count || 0;
+  if (!n) { toast('Kapatılacak pozisyon yok', 'error'); return; }
+  openModal(
+    'Tümünü Kapat',
+    `${n} açık pozisyon güncel fiyatlardan kapatılacak. Bot çalışmaya devam edecek.`,
+    closeAllPos
+  );
+}
+function closeAllPos() {
+  const symbols = (state.positions || []).map(p => p.symbol);
+  if (!symbols.length) return;
+  let done = 0;
+  const doNext = () => {
+    if (done >= symbols.length) {
+      fetchState();
+      toast(`${symbols.length} pozisyon kapatıldı`, 'success');
+      return;
+    }
+    fetch(`/api/close/${symbols[done++]}`, { method:'POST' }).then(doNext);
+  };
+  doNext();
+}
+
+function confirmStopAll() {
+  openModal(
+    '⚠️ Tümünü Kapat & Durdur',
+    `Tüm ${state.active_count || 0} pozisyon kapatılacak ve bot durdurulacak!`,
+    () => {
+      fetch('/api/stop_all', { method:'POST' })
+        .then(r => r.json())
+        .then(d => toast(d.msg, d.ok ? 'success' : 'error'));
+    }
+  );
+}
+
+function clearLogs() {
+  document.getElementById('log-panel').innerHTML = '';
+  lastLogCount = 0;
+}
+
+// ─────────────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+});
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  const panel = document.getElementById(`panel-${name}`);
+  if (panel) panel.classList.add('active');
+}
+
+// ─────────────────────────────────────────────────
+// MODAL
+// ─────────────────────────────────────────────────
+function openModal(title, msg, action, showLiveConfirm = false) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-msg').textContent   = msg;
+  const liveDiv = document.getElementById('modal-live-confirm');
+  const liveInp = document.getElementById('live-confirm-input');
+  const box     = document.getElementById('modal-box');
+
+  if (showLiveConfirm) {
+    liveDiv.style.display = 'flex';
+    liveInp.value = '';
+    box.classList.add('live-warn');
+  } else {
+    liveDiv.style.display = 'none';
+    box.classList.remove('live-warn');
+  }
+
+  document.getElementById('modal-overlay').classList.add('show');
+  requireLiveConfirm = showLiveConfirm;
+  modalAction = action;
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+  modalAction = null;
+  requireLiveConfirm = false;
+}
+function modalConfirm() {
+  const action = modalAction;
+  closeModal();
+  if (action) action();
+}
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ─────────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────────
+function toast(msg, type = '') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ─────────────────────────────────────────────────
+// SCAN TIMER
+// ─────────────────────────────────────────────────
+setInterval(() => {
+  const el = document.getElementById('scan-timer');
+  if (!nextScan || !state.running) { el.textContent = ''; return; }
+  const secs = Math.max(0, Math.floor((nextScan - Date.now()) / 1000));
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  el.textContent = `Sonraki tarama: ${m}:${String(s).padStart(2,'0')}`;
+}, 500);
+
+// ─────────────────────────────────────────────────
+// BAŞLANGIÇ
+// ─────────────────────────────────────────────────
+fetchState();
+</script>
+</body>
+</html>
