@@ -1,1 +1,1 @@
-# Binance-Bot
+# wr-stoch-trading-bot
