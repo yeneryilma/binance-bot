@@ -1,0 +1,14 @@
+Test APİ 
+
+api_key    = vgt4NemH95J8Qk3PKUbYTlcbzUOWvsQ5l2frFnZ1z21HWbbRRRpqy0RfkHc3ol0T
+
+api_secret = ieAZGMMATHBtPc2rOG19J8Ntpxb0q8EPVltJqHmPpTJmPtkx7etge7mxgmOcj5e6
+
+
+Canlı APİ
+
+API_KEY = 'ytJWoxa6okmXubS8d5VSvF9OmjNhoOPcpM1kz7L5n9w81HwtnmZWqZIz6gAWS71I'
+
+API_SECRET = 'tab72dr6uVjP99qP8jVP8oTqcEg9403V3fMpQu6cynvvVLshewaQ1EbQHshh3nac'
+
+/https://binance-bot-eccm.onrender.com
