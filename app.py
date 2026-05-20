@@ -4,6 +4,7 @@ from config import Config
 from routes.web import web_bp
 from routes.api import api_bp, set_socketio
 from services.portfolio_service import build_state
+import requests
 
 socketio = SocketIO(cors_allowed_origins="*", async_mode='threading')
 
@@ -17,6 +18,10 @@ def create_app():
 app = create_app()
 set_socketio(socketio)
 socketio.init_app(app)
+
+@app.route('/my-ip')
+def my_ip():
+    return request.remote_addr
 
 @socketio.on('connect')
 def on_connect(auth=None):
